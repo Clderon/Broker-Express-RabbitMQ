@@ -7,7 +7,7 @@ let invoiceCounter = 1;
 
 async function init() {
   // ── Escucha: payment.success ────────────────────────────────────────────────
-  await rabbitmqBus.subscribe('payment.success', async (payload) => {
+  await rabbitmqBus.subscribe('payment.success', async (payload, span) => {
     console.log(`[BillingService] Procesando payment.success... (simulando ${BILLING_DELAY_MS / 1000}s de generación en ERP)`);
     await sleep(BILLING_DELAY_MS);
     const { orderId, amount } = payload;
@@ -24,7 +24,7 @@ async function init() {
       orderId,
       invoiceNumber: invoice.invoiceNumber,
       totalAmount: amount
-    });
+    }, span);
 
     console.log(`[BillingService] ✔ Orden ${orderId} COMPLETADA. Factura: ${invoice.invoiceNumber}`);
   });

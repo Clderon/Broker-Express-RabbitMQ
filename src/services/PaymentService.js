@@ -7,7 +7,7 @@ const PAYMENT_DELAY_MS = 6000;
 
 async function init() {
   // ── Escucha: stock.reserved ─────────────────────────────────────────────────
-  await rabbitmqBus.subscribe('stock.reserved', async (payload) => {
+  await rabbitmqBus.subscribe('stock.reserved', async (payload, span) => {
     console.log(`[PaymentService] Procesando stock.reserved... (simulando ${PAYMENT_DELAY_MS / 1000}s de respuesta de pasarela de pago)`);
     await sleep(PAYMENT_DELAY_MS);
     const { orderId, items, totalAmount, paymentMethod, customerId } = payload;
@@ -17,7 +17,7 @@ async function init() {
         status: 'Failed',
         failureReason: 'Pago rechazado.'
       });
-      await rabbitmqBus.publish('payment.failed', { orderId, items, reason: 'Pago rechazado.' });
+      await rabbitmqBus.publish('payment.failed', { orderId, items, reason: 'Pago rechazado.' }, span);
       return;
     }
 
@@ -36,7 +36,7 @@ async function init() {
       customerId,
       paymentId: payment.paymentId,
       amount: totalAmount
-    });
+    }, span);
   });
 }
 

@@ -2,6 +2,7 @@ const rabbitmqBus = require('../broker/eventBus');
 const customerRepo = require('../repositories/CustomerRepository');
 const productRepo = require('../repositories/ProductRepository');
 const orderRepo = require('../repositories/OrderRepository');
+const tracer = require('../tracing/tracer');
 
 class OrderService {
   async createOrder({ customerEmail, paymentMethod, items }) {
@@ -23,12 +24,20 @@ class OrderService {
 
     const order = orderRepo.create({ customerId: customer.id, items: normalizedItems, paymentMethod });
 
+    // Span raíz: representa el inicio del flujo completo de la orden
+    const rootSpan = tracer.startSpan('order.flow');
+    rootSpan.setTag('orderId', order.id);
+    rootSpan.setTag('customerEmail', customerEmail);
+    rootSpan.setTag('paymentMethod', paymentMethod);
+
     await rabbitmqBus.publish('order.created', {
       orderId: order.id,
       customerId: customer.id,
       items: normalizedItems,
       paymentMethod
-    });
+    }, rootSpan);
+
+    rootSpan.finish();
 
     return { orderId: order.id };
   }

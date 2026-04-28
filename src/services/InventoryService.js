@@ -7,7 +7,7 @@ const INVENTORY_DELAY_MS = 4000;
 
 async function init() {
   // ── Escucha: order.created ──────────────────────────────────────────────────
-  await rabbitmqBus.subscribe('order.created', async (payload) => {
+  await rabbitmqBus.subscribe('order.created', async (payload, span) => {
     console.log(`[InventoryService] Procesando order.created... (simulando ${INVENTORY_DELAY_MS / 1000}s de consulta a inventario)`);
     await sleep(INVENTORY_DELAY_MS);
     const { orderId, items, paymentMethod, customerId } = payload;
@@ -19,7 +19,7 @@ async function init() {
           ? `Producto SKU ${item.sku} no existe (datos reiniciados).`
           : `Stock insuficiente para SKU ${item.sku}.`;
         orderRepo.update(orderId, { status: 'Failed', failureReason: reason });
-        await rabbitmqBus.publish('stock.failed', { orderId, reason });
+        await rabbitmqBus.publish('stock.failed', { orderId, reason }, span);
         return;
       }
     }
@@ -41,11 +41,11 @@ async function init() {
       items: reservedItems,
       totalAmount,
       paymentMethod
-    });
+    }, span);
   });
 
   // ── Compensación: revertir stock si el pago falla ──────────────────────────
-  await rabbitmqBus.subscribe('payment.failed', async (payload) => {
+  await rabbitmqBus.subscribe('payment.failed', async (payload, span) => {
     console.log('[InventoryService] Compensación: revirtiendo stock...');
     const { items } = payload;
     if (items) {
